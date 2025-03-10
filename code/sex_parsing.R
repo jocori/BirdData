@@ -1,4 +1,6 @@
+
 setwd("~/Desktop/KU/Projects/BirdData")
+
 #load packages
 library(dplyr)
 #read in data
@@ -122,7 +124,7 @@ classify_sex <- function(value) {
   female_words <- c("FEMALE", "FEMELLE", "HEMBRA", "FEMME", "MUJER", "FÉMININE", "FEMENINO", "FEMININ", "FEMELLA", "DONNA", "FEMINA")
   
   # Define additional keywords for indeterminate cases (besides a trailing ?)
-  indeterminate_words <- c("UNCLEAR", "UNSURE", "POSSIBLE", "QUESTIONABLE", "INDETERMINATE", "AMBIGUOUS")
+  indeterminate_words <- c("UNCLEAR", "UNSURE", "POSSIBLE", "QUESTIONABLE", "AMBIGUOUS")
   
   # Create regex patterns for male and female words.
   # The pattern captures an optional trailing "?" to flag uncertainty.
@@ -147,8 +149,9 @@ classify_sex <- function(value) {
   is_indeterminate_word <- any(sapply(indeterminate_words, function(w) grepl(paste0("\\b", w, "\\b"), value)))
   
   # Determine the sex classification based on the presence of male and/or female words
-  if (length(male_found_clean) > 0 & length(female_found_clean) > 0) {
-    sex_category <- "MALE | FEMALE"
+  if (length(male_found_clean) > 0 & length(female_found_clean) > 0 | 
+      length(male_found_clean >1 | length(female_found_clean >1))) {
+    sex_category <- "MIXED"
   } else if (length(male_found_clean) > 0) {
     sex_category <- "MALE"
   } else if (length(female_found_clean) > 0) {
@@ -173,28 +176,53 @@ classify_sex <- function(value) {
   if (male_in_question || female_in_question) {
     notes_parts <- c(notes_parts, "Sex designation was in question")
   }
+  # ADD A NOTE ON SEXES IF MIXED
+  # --- Build the notes column ---
+  notes_parts <- c()
   
-  # 3. Remove recognized tokens (male/female words and counts) from the standardized value to capture extra info.
+  # 1. Extract numeric counts with associated sex terms from the original value.
+  count_pattern <- "(?i)\\b\\d+\\s*(?:MALE|FEMALE|MACHO|MASCLE|FEMELLE|HEMBRA)S?\\b"
+  count_matches <- unlist(regmatches(original_value, gregexpr(count_pattern, original_value, perl=TRUE)))
+  
+  # Add counts to notes explicitly for MIXED cases
+  if (sex_category == "MIXED") {
+    if (length(count_matches) > 0) {
+      notes_parts <- c(notes_parts, paste(count_matches, collapse="; "))
+    }
+
+  } else {
+    if (length(count_matches) > 0) {
+      notes_parts <- c(notes_parts, paste(count_matches, collapse="; "))
+    }
+  }
+  
+  # 2. Add a note if any recognized male/female term had a trailing "?"
+  if (male_in_question || female_in_question) {
+    notes_parts <- c(notes_parts, "Sex designation was in question")
+  }
+  
+  # 3. Capture extra text after removing recognized tokens
   extra_text <- value
   extra_text <- gsub(male_pattern, "", extra_text, perl=TRUE)
   extra_text <- gsub(female_pattern, "", extra_text, perl=TRUE)
   extra_text <- gsub(count_pattern, "", extra_text, ignore.case=TRUE, perl=TRUE)
   extra_text <- gsub("[[:punct:]]", " ", extra_text)  # remove punctuation
   extra_text <- trimws(extra_text)
+  
   if (nchar(extra_text) > 0) {
     notes_parts <- c(notes_parts, extra_text)
   }
   
   final_notes <- if (length(notes_parts) > 0) paste(notes_parts, collapse="; ") else NA
   
+  
   return(c(sex_category, final_notes))
 }
 
-# Load your dataset (adjust the file path as needed)
-data <- read.csv("NAOC_sex_mappings_JLC_NL25.csv", stringsAsFactors = FALSE)
+
 
 # Apply the classification function rowwise and create the new columns:
-data <- data %>% 
+data <- sex %>% 
   rowwise() %>% 
   mutate(
     result = list(classify_sex(uppercase.value)),

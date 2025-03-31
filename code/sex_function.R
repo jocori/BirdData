@@ -89,6 +89,7 @@ classify_sex <- function(value) {
       notes_parts <- c(notes_parts, paste(count_matches, collapse="; "))
     }
   }
+  
   # 3. Capture extra text after removing recognized tokens
   extra_text <- value
   extra_text <- gsub(male_pattern, "", extra_text, perl=TRUE)
@@ -97,11 +98,17 @@ classify_sex <- function(value) {
   extra_text <- gsub("[[:punct:]]", " ", extra_text)  # remove punctuation
   extra_text <- trimws(extra_text)
   
+  # Remove any trailing numbers in mixed cases
+  if (sex_category == "MIXED") {
+    extra_text <- sub("(\\s*\\d+)+\\s*$", "", extra_text, perl=TRUE)
+  }
+  
   if (nchar(extra_text) > 0) {
     notes_parts <- c(notes_parts, extra_text)
   }
   
   final_notes <- if (length(notes_parts) > 0) paste(notes_parts, collapse="; ") else NA
+  
   
   
   return(c(sex_category, final_notes))
@@ -120,5 +127,5 @@ data <- sex %>%
   #INDETERMINATE RECORDS CONTAIN A QUESTION MARK
   #UNSPECIFIED WILL CAPTURE WORDS THAT ARE NOT INCLUDED IN DEFINED TERMS (SO EVERYTHING ELSE)
 #remove numbers at end for notes for "mixed", check terms, make sure jlc.working matches updated.mapping and maps.to.sex.concept
-  
+  ##make it female if any word starts with "F" UNLESS it is "mixed". same with male and "M" this will include languages we missed
   

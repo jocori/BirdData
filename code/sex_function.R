@@ -83,7 +83,7 @@ data <- sex %>%
   ungroup() %>% 
   select(-result)
 
-
+write.csv(data, "data/processed_sex_data.csv", row.names = FALSE)
 
 #MIXED WILL BE RECORDS THAT HAVE MULTIPLE TERMS IN SEX COLUMN
   
